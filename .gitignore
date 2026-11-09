@@ -50,3 +50,9 @@ OPERATING SYSTEM FILES
 
 .DS_Store
 Thumbs.db
+
+# =====================================
+# DATABRICKS GENIE SPACES (not supported in Git folders)
+# =====================================
+
+*.geniespace.json

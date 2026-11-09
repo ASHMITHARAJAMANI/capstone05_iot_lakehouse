@@ -1,0 +1,161 @@
+job_id: 261102281389529
+name: capstone5_iot_pipeline
+run_as_user_name: datauser47@financecloudbrick.onmicrosoft.com
+format: MULTI_TASK
+performance_target: PERFORMANCE_OPTIMIZED
+max_concurrent_runs: 1
+timeout_seconds: 0
+queue:
+  enabled: true
+
+schedule:
+  quartz_cron_expression: "0 0 6 * * ?"
+  timezone_id: Europe/London
+  pause_status: PAUSED
+
+health:
+  rules:
+    - metric: RUN_DURATION_SECONDS
+      op: GREATER_THAN
+      value: 633
+
+email_notifications:
+  on_start:
+    - pkandke71@gmail.com
+    - vaidehideshmukh422@gmail.com
+    - samsingal12@gmail.com
+    - amarmoorthi@gmail.com
+  on_success:
+    - pkandke71@gmail.com
+    - vaidehideshmukh422@gmail.com
+    - samsingal12@gmail.com
+    - amarmoorthi@gmail.com
+  on_failure:
+    - pkandke71@gmail.com
+    - vaidehideshmukh422@gmail.com
+    - samsingal12@gmail.com
+    - amarmoorthi@gmail.com
+    - datauser47@financecloudbrick.onmicrosoft.com
+  on_duration_warning_threshold_exceeded:
+    - datauser47@financecloudbrick.onmicrosoft.com
+  no_alert_for_skipped_runs: false
+notification_settings:
+  no_alert_for_skipped_runs: false
+  no_alert_for_canceled_runs: false
+webhook_notifications: {}
+
+parameters:
+  - name: catalog
+    default: capstone_5iot
+  - name: freshness_hours
+    default: "24"
+  - name: max_reject_pct
+    default: "25"
+
+environments:
+  - environment_key: Default
+    spec:
+      environment_version: "6"
+
+tasks:
+  - task_key: bronze_adls_autoloader
+    run_if: ALL_SUCCESS
+    notebook_task:
+      notebook_path: /Workspace/Users/datauser47@financecloudbrick.onmicrosoft.com/capstone05_iot_lakehouse/final/01_bronze/2_adls_dataload_and_autoloader
+      source: WORKSPACE
+    max_retries: 2
+    min_retry_interval_millis: 300000
+    retry_on_timeout: true
+    disable_auto_optimization: false
+    timeout_seconds: 1800
+    disabled: false
+
+  - task_key: bronze_azure_sql
+    run_if: ALL_SUCCESS
+    environment_key: Default
+    notebook_task:
+      notebook_path: /Workspace/Users/datauser47@financecloudbrick.onmicrosoft.com/capstone05_iot_lakehouse/final/01_bronze/1_azure_dataload
+      source: WORKSPACE
+    max_retries: 2
+    min_retry_interval_millis: 300000
+    retry_on_timeout: true
+    disable_auto_optimization: false
+    timeout_seconds: 1800
+    disabled: false
+
+  - task_key: data_profile
+    depends_on:
+      - task_key: bronze_adls_autoloader
+      - task_key: bronze_azure_sql
+    run_if: ALL_SUCCESS
+    notebook_task:
+      notebook_path: /Workspace/Users/datauser47@financecloudbrick.onmicrosoft.com/capstone05_iot_lakehouse/final/01_bronze/3_data_profile
+      source: WORKSPACE
+    max_retries: 1
+    min_retry_interval_millis: 120000
+    retry_on_timeout: false
+    disable_auto_optimization: false
+    timeout_seconds: 1800
+    disabled: false
+
+  - task_key: silver_transform
+    depends_on:
+      - task_key: data_profile
+    run_if: ALL_SUCCESS
+    notebook_task:
+      notebook_path: /Workspace/Users/datauser47@financecloudbrick.onmicrosoft.com/capstone05_iot_lakehouse/final/02_silver/4_day2_silver
+      source: WORKSPACE
+    max_retries: 1
+    min_retry_interval_millis: 120000
+    retry_on_timeout: false
+    disable_auto_optimization: false
+    timeout_seconds: 2700
+    disabled: false
+
+  - task_key: gold_build
+    depends_on:
+      - task_key: silver_transform
+    run_if: ALL_SUCCESS
+    notebook_task:
+      notebook_path: /Workspace/Users/datauser47@financecloudbrick.onmicrosoft.com/capstone05_iot_lakehouse/final/03_gold/5_day3_gold
+      source: WORKSPACE
+    max_retries: 1
+    min_retry_interval_millis: 120000
+    retry_on_timeout: false
+    disable_auto_optimization: false
+    timeout_seconds: 2700
+    disabled: false
+
+  - task_key: validate
+    depends_on:
+      - task_key: gold_build
+    run_if: ALL_SUCCESS
+    environment_key: Default
+    notebook_task:
+      notebook_path: /Workspace/Users/datauser47@financecloudbrick.onmicrosoft.com/capstone05_iot_lakehouse/final/6_day4_pipeline_validate
+      base_parameters:
+        run_id: "{{job.run_id}}"
+      source: WORKSPACE
+    max_retries: 0
+    min_retry_interval_millis: 0
+    retry_on_timeout: false
+    disable_auto_optimization: true
+    timeout_seconds: 1200
+    disabled: false
+
+  - task_key: dashboard_refresh
+    depends_on:
+      - task_key: validate
+    run_if: ALL_SUCCESS
+    environment_key: Default
+    notebook_task:
+      notebook_path: /Workspace/Users/datauser47@financecloudbrick.onmicrosoft.com/capstone05_iot_lakehouse/final/7_day4_monitoring_refresh
+      base_parameters:
+        run_id: "{{job.run_id}}"
+      source: WORKSPACE
+    max_retries: 1
+    min_retry_interval_millis: 120000
+    retry_on_timeout: false
+    disable_auto_optimization: false
+    timeout_seconds: 900
+    disabled: false
